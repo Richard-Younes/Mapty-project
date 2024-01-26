@@ -64,7 +64,6 @@ class Cycling extends Workout {
 const run1 = new Running([39, -12], 5.2, 24, 178);
 const cycling1 = new Cycling([39, -12], 27, 95, 523);
 
-console.log(run1, cycling1);
 //////////////////////////////////////////////////////////////////
 // Application Architecture
 
@@ -80,15 +79,18 @@ class App {
 	#map;
 	#mapZoomLevel = 13;
 	#mapEvent;
-	#workout = [];
+	#workouts = [];
 
 	constructor() {
+		// Get user's position
 		this._getPosition();
 
+		// Get data from local storage
+		this._getLocalStorage();
+
+		// Attach event handlers
 		form.addEventListener('submit', this._newWorkout.bind(this));
-
 		inputType.addEventListener('change', this._toggleElevationField);
-
 		containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
 	}
 
@@ -104,8 +106,6 @@ class App {
 		const { latitude } = position.coords;
 		const { longitude } = position.coords;
 
-		console.log(`https://www.google.com/maps/@${latitude},${longitude}`);
-
 		const coords = [latitude, longitude];
 
 		this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
@@ -116,6 +116,11 @@ class App {
 
 		// Handling clicks on map
 		this.#map.on('click', this._showForm.bind(this));
+
+		this.#workouts.forEach(work => {
+			// No error since the map here is already loaded
+			this._renderWorkoutMarker(work);
+		});
 	}
 
 	_showForm(mapE) {
@@ -170,7 +175,7 @@ class App {
 			workout = new Cycling([lat, lng], distance, duration, elevation);
 		}
 		// Add new object to workout array
-		this.#workout.push(workout);
+		this.#workouts.push(workout);
 
 		// Render workout on map as	marker
 		this._renderWorkoutMarker(workout);
@@ -179,6 +184,9 @@ class App {
 		this._renderWorkout(workout);
 		// Hide from + clear input field
 		this._hideForm();
+
+		// Set local storage to all workouts
+		this._setLocalStorage();
 	}
 
 	_renderWorkoutMarker(workout) {
@@ -249,10 +257,7 @@ class App {
 		const workoutEl = e.target.closest('.workout');
 		if (!workoutEl) return;
 
-		console.log(workoutEl);
-
-		const workout = this.#workout.find(work => work.id === workoutEl.dataset.id);
-		console.log(workout);
+		const workout = this.#workouts.find(work => work.id === workoutEl.dataset.id);
 
 		this.#map.setView(workout.coords, this.#mapZoomLevel, {
 			animate: true,
@@ -262,7 +267,33 @@ class App {
 		});
 
 		// Using the public interface
-		workout.click();
+		// workout.click();
+	}
+
+	_setLocalStorage() {
+		// Local storage is a simple keyValue storage
+		localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+	}
+
+	_getLocalStorage() {
+		// Objects coming from the local storage will not inherit the methods since the protocol chain (Class chain) is broken
+		const data = JSON.parse(localStorage.getItem('workouts'));
+
+		if (!data) return;
+
+		this.#workouts = data;
+
+		this.#workouts.forEach(work => {
+			this._renderWorkout(work);
+
+			// // Will return error since the marker is trying to access the map before it is loaded
+			// this._renderWorkoutMarker(work);
+		});
+	}
+
+	reset() {
+		localStorage.removeItem('workouts');
+		location.reload();
 	}
 }
 
